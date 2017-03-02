@@ -1,0 +1,13 @@
+Subir una rutina al ESP
+
+Descargar el ESPlorer: http://esp8266.ru/esplorer-latest/?f=ESPlorer.zip
+Descomprimirlo donde mas guste
+
+1. Conectar el ESP con el FTDI (Modo run, es decir con el GPIO0 flotando)
+2. Abrir el ESPlorer
+3. Conectar el FTDI a la PC
+4. Encender la alimentacion del ESP
+5. Refrescar el ESPlorer para que encuentre el puerto del FTDI
+6. Abrir la comunicacion(Clic en Open)
+7. Abrir la rutina a cargar (rutina.lua)
+8. Subirla al ESP (Save to ESP)

@@ -1,0 +1,19 @@
+Flashear el ESP8266 con NodeMCU
+
+1. Instalar esptool:
+	  i) Descargar e Instalar python 2.7 (seleccionar pip en los paquetes de instalacion y agregar la ruta de instalacion al path de windows. Ej.: C:\Python27 y C:\Python27\Scripts)
+	 ii) Descargar esptool 1.3: https://github.com/espressif/esptool/releases
+	iii) Instalar esptool: python setup.py install (se debe instalar pyserial durante el proceso de instalacion)
+	 vi) Reiniciar la consola y ejecutar python esptool.py -h ára verificar la correcta instalacion
+2. Crear el binario de NodeMCU desde la web: https://nodemcu-build.com/ (seleccionar los paquetes file, gpio, mqtt, net, node, tmr, uart, wifi)
+3. Copiar el binario a la ubicacion de esptool (solo por comodidad)
+4. Ejecutar esptool: python esptool.py --port [port_name] write_flash [memory_dir] [build_name]
+	Ej: python esptool.py --port COM3 write_flash 0x00000 nodemcu-master-8-modules-2017-02-15-03-28-33-integer.bin
+
+Los pasos precisos para conectar y flashear correctamente el ESP-01 estan aca:
+	https://www.instructables.com/id/Cargar-NodeMCU-en-ESP8266-ESP-01-y-otros/
+
+Algunos problemas que surgieron:
+	1. Problemas de conexion con el ESP
+		Se soluciono parcialmente cambiando la fuente de alimentacion del ESP. 
+		Se sugiere comprar un FTDI nuevo

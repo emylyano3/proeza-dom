@@ -1,0 +1,10 @@
+Instalacion de openHabian en Raspberry Pi
+	1. Formatear la SD con SDFormatter: https://www.sdcard.org/downloads/formatter_4/
+	2. Descargar la imagen de openHabian desde https://github.com/openhab/openhabian/releases
+	3. Escribir la imagen en la SD con Win32DiskImager: https://sourceforge.net/projects/win32diskimager/
+	4. Conectar el cable eternet y colocar la SD en el RPi y encenderlo
+	5. Conectar via SSH con el Putty a la IP del RPi (Para saber la IP ir a la configuracion del router)
+	
+Hasta aca tenemos:
+	RPi con su SO instalado y funcionando
+	OpenHAB corriendo. Se puede acceder en http:\\openhabianpi:8080

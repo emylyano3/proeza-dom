@@ -1,0 +1,20 @@
+Configuracion de openHABian
+
+Agregamos algunos puntos de configuracion al SO e instalamos el broker de mqtt
+
+	1. Forzar un update: sudo openhabian-config
+	2. Configurar el wifi: sudo openhabian-config
+	3. Instalar mosquitto (broker mqtt): sudo openhabian-config
+		Para probarlo, en dos consolas diferentes escribir estos comandos
+			A) mosquitto_sub -v -t 'test/topic'
+			B) mosquitto_pub -t 'test/topic' -m 'helloWorld'
+		En la consola (A) deberia aparecer el mensaje 'helloWord'
+
+	4. Cambiar la pass: sudo raspi-config (seleccionar "Change password")
+	5. Expandir el FS: sudo raspi-config (seleccionar "Expand FS")
+	
+Hasta aca tenemos:
+	RPi listo para conectarse a la red Wifi
+	MQTT broker instalado.
+	Nueva password
+	
