@@ -12,4 +12,7 @@ module.GPIO0 = 3
 module.GPIO2 = 4
 
 module.ENDPOINT = "esp"
+module.MAX_SUBS_RETRY = 15
+module.SUBS_RETRY_DELAY = 1000
+
 return module

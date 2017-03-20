@@ -10,16 +10,14 @@ m = nil
 
 local function send_state(state)
   print("Sending state: " .. state)
-  m:publish(config.ENDPOINT.."/" .. config.ID.."/state", state, 0,0)
+  m:publish(config.ENDPOINT.."/" .. config.ID.."/state", ""..state, 0,0)
 end
 
 -- Sends my id to the broker for registration
 local function register_myself()
   dataEndpoint = config.ENDPOINT .. "/" .. config.ID
-  m:subscribe(dataEndpoint, 0, function(conn)
-	print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
-  print("Successfully subscribed to data endpoint: " .. dataEndpoint)
-	print("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++")
+  subscribed = m:subscribe(dataEndpoint, 0, function(conn)
+    print("Successfully subscribed to data endpoint: " .. dataEndpoint)
   end)
 end
 
@@ -32,7 +30,7 @@ local function mqtt_start()
   m = mqtt.Client(config.ID, 120)
   -- register message callback beforehand
   m:on("message", function(conn, topic, data)
-    print("Meesage received :" .. data)
+    print("Message received :" .. data)
     newState = tonumber(data)
     if newState and (newState == 0 or newState == 1) then
       gpio.write(config.GPIO2, newState)
@@ -51,7 +49,7 @@ local function mqtt_start()
 --      tmr.alarm(6, 1000, 1, send_ping)
     end, 
     function(client, reason) 
-      print("failed reason: "..reason) 
+      print("Failed to connect to mqqt server. Reason: "..reason) 
     end)
 end
 
