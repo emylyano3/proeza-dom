@@ -15,4 +15,6 @@ module.ENDPOINT = "esp"
 module.MAX_SUBS_RETRY = 15
 module.SUBS_RETRY_DELAY = 1000
 
+module.READ_TIMER = 1
+
 return module

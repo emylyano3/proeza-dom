@@ -1,6 +1,7 @@
 -- file : application.lua
 local module = {}
 m = nil
+--readTimer = nil
 
 -- Sends a simple ping to the broker
 --local function send_ping()
@@ -23,7 +24,8 @@ end
 
 local function gpio_setting()
   gpio.mode(config.GPIO2, gpio.OUTPUT)
-  gpio.mode(config.GPIO0, gpio.INPUT, gpio.PULLUP)
+  gpio.mode(config.GPIO0, gpio.INT, gpio.PULLUP)
+  gpio.trig(config.GPIO0, "up", motion_detected)
 end
 
 local function mqtt_start()
@@ -44,18 +46,35 @@ local function mqtt_start()
   m:connect(config.HOST, config.PORT, 0, 1,
     function(con)
       register_myself()
-      -- And then pings each 1000 milliseconds
---      tmr.stop(6)
---      tmr.alarm(6, 1000, 1, send_ping)
     end, 
     function(client, reason) 
       print("Failed to connect to mqqt server. Reason: "..reason) 
     end)
 end
 
+function motion_detected ()
+  print("Motion detected")
+end
+
+--function gpio_start() 
+--    -- And then pings each 1000 milliseconds
+--    readTimer = tmr.create()
+--    readTimer:register(1000, tmr.ALARM_AUTO, read_gpio)
+--    readTimer:start()
+--end
+
+--function read_gpio() 
+--  print("Reading GPIO0")
+--  gpio.read(config.GPIO0)
+--  if read then
+--    print("Read : "..read)
+--  end
+--end
+
 function module.start()
   gpio_setting()
   mqtt_start()
+--  gpio_start()
 end
 
 return module 
