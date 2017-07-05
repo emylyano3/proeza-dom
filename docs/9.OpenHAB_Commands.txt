@@ -1,0 +1,5 @@
+OPEN HAB 
+
+Restart
+/etc/init.d/openhab2 restart
+
