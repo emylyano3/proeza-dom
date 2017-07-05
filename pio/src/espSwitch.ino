@@ -13,17 +13,15 @@ const char* TOPIC_COMMAND = "light/room01/cmd";
 const char* TOPIC_STATE = "light/room01/state";
 const char* TOPIC_ONLINE = "ESP/online";
 
-const unsigned int STATE_INVALID = -1;
-const unsigned int STATE_ON = 1;
-const unsigned int STATE_OFF = 0;
-
-/* states map */
-const int STATES_WRITE[2] = {HIGH, LOW};
+/* states def */
+const int STATE_INVALID = -1;
+const int STATE_ON = 1;
+const int STATE_OFF = 0;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-char curState = 0;
+int curState = 0;
 
 void setup() {
   // Initialize the BUILTIN_LED pin as an output
