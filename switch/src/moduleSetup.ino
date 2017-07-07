@@ -1,12 +1,10 @@
-
-const char FORM_WIFI_SETUP [] =
+static const char FORM_WIFI_SETUP [] =
 "<!DOCTYPE html>"
 "<html>"
 "<body>"
 	"<h1>ESP Switch</h1>"
   "<h2>Wifi setup</h2>"
 	"<div>"
-		// "<form method='POST' action='wifisave'>"
 		"<form method='POST' action='switchsetup'>"
 		  "SSID<br/>"
 		  "<input type='text' name='ssid' required='required' placeholder='ssid'/>"
@@ -20,7 +18,7 @@ const char FORM_WIFI_SETUP [] =
 "</body>"
 "</html>";
 
-const char FORM_SWITCH_SETUP [] =
+static const char FORM_SWITCH_SETUP [] =
 "<!DOCTYPE html>"
 "<html>"
 "<body>"
@@ -37,30 +35,49 @@ const char FORM_SWITCH_SETUP [] =
 "</body>"
 "</html>";
 
-const char PAGE_CONFIG_OK [] =
+static const char PAGE_CONFIG_OK [] =
 "<!DOCTYPE html>"
 "<html>"
 	"<body>"
 		"<h1>Configuration OK</h1>"
+		"<h2>Server shuting down...</h2>"
 	"</body>"
 "</html>";
 
+/* Access Point */
+const char * APssid = "ESP-AP";
+const char * APpass = "12345678";
+IPAddress apIP(192, 168, 5, 1);
+IPAddress netMsk(255, 255, 255, 0);
+
+/* Web server para manejar la config */
+ESP8266WebServer webServer(80);
+
+bool APRunning = false;
+
 void moduleSetup () {
-	if (!AP_RUNNING) {
-		AP_RUNNING = startAP();
-		startWebServer();
+	if (!APRunning) {
+		APRunning = startWebServer();
 	}
 	webServer.handleClient();
 }
 
-boolean startAP () {
+bool startWebServer () {
   Serial.println("Starting Access Point...");
+	WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(apIP, apIP, netMsk);
   if (WiFi.softAP(APssid, APpass)) {
     // Without delay I've seen the IP address blank
     delay(500);
     Serial.print("AP Setup Success. IP address: ");
     Serial.println(WiFi.softAPIP());
+		webServer.on("/wifisetup", handleWifiSetup);
+		webServer.on("/switchsetup", handleSwitchSetup);
+		webServer.on("/setupfinish", handleSetupFinish);
+		webServer.onNotFound(handleNotFound);
+		// Web server start
+		webServer.begin();
+		Serial.println("HTTP server started");
 		return true;
   } else {
     Serial.println("AP Setup Fail.");
@@ -68,15 +85,10 @@ boolean startAP () {
   }
 }
 
-void startWebServer () {
-  webServer.on("/wifisetup", handleWifiSetup);
-  // webServer.on("/wifisave", handleWifiSave);
-  webServer.on("/switchsetup", handleSwitchSetup);
-  webServer.on("/setupfinish", handleSetupFinish);
-  webServer.onNotFound(handleNotFound);
-  // Web server start
-  webServer.begin();
-  Serial.println("HTTP server started");
+void stopWebServer () {
+	webServer.stop();
+	WiFi.mode(WIFI_OFF);
+	APRunning = false;
 }
 
 void handleWifiSetup() {
@@ -90,29 +102,14 @@ void handleSwitchSetup() {
 }
 
 void handleSetupFinish () {
-	Serial.println("Saving config");
   webServer.arg("swName").toCharArray(moduleName, sizeof(moduleName) - 1);
 	webServer.send(200, "text/html", PAGE_CONFIG_OK);
 	webServer.client().stop();
 	delay(500);
-	webServer.stop();
-	WiFi.mode(WIFI_STA);
+	stopWebServer();
+	delay(500);
 	setState(STATE_SAVE_CONF);
 }
-
-// void handleWifiSave () {
-//   Serial.println("Saving wifi config");
-//   webServer.arg("ssid").toCharArray(ssid, sizeof(ssid) - 1);
-//   webServer.arg("pass").toCharArray(pass, sizeof(pass) - 1);
-//   webServer.sendHeader("Location", "switchsetup", true);
-//   webServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-//   webServer.sendHeader("Pragma", "no-cache");
-//   webServer.sendHeader("Expires", "-1");
-//   // // Empty content inhibits Content-length header so we have to close the socket ourselves.
-//   webServer.send(302, "text/plain", "");
-//   // Stop is needed because we sent no content length
-//   webServer.client().stop();
-// }
 
 void handleNotFound() {
   String message = "<h1>File Not Found</h1><br/>";

@@ -25,12 +25,12 @@ boolean setupDone () {
   if (strlen(ssid) > 0 && String(ssid) != String("none")) {
     Serial.println("SSID is set");
     if (strlen(moduleName) > 0 && String(moduleName) != String("ESP_Switch")) {
-      Serial.println("Module name is set");
+      Serial.println("Module name set");
       return true;
     }
-    Serial.println("Module name is not set");
+    Serial.println("Module name not set");
   }
-  Serial.println("SSID is not set");
+  Serial.println("SSID not set");
   return false;
 }
 

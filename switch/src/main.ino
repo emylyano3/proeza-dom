@@ -26,7 +26,6 @@ Las transiciones de estado posibles:
   SETUP ------> SAVE_CONF
   SAVE_CONF --> RUN
   RUN --------> SETUP
-
 */
 
 #include <ESP8266WiFi.h>
@@ -34,32 +33,18 @@ Las transiciones de estado posibles:
 #include <ESP8266WebServer.h>
 #include <EEPROM.h>
 #include <PubSubClient.h>
-
-/* MQTT Client */
-WiFiClient espClient;
-PubSubClient mqttClient(espClient);
+#include <FS.h>
 
 /* MQTT broker config */
-const char* mqtt_server = "192.168.0.105";
-
-/* Topics config */
-const char* TOPIC_COMMAND = "light/room01/cmd";
-
-/* Access Point */
-const char * APssid = "ESP-AP";
-const char * APpass = "12345678";
-IPAddress apIP(192, 168, 5, 1);
-IPAddress netMsk(255, 255, 255, 0);
-
-/* Web server para manejar la config */
-ESP8266WebServer webServer(80);
+const char* mqttServerIP = "192.168.0.105";
+int mqttServerPort = 1883;
 
 /* Wifi Network */
 char ssid[32] = "none";
 char pass[32] = "none";
 
 /* Module Name */
-char moduleName[20] = "ESP_Switch";
+char moduleName[20] = "none";
 
 /* Module states */
 const char STATE_LOAD_CONF  = 0;
@@ -68,10 +53,6 @@ const char STATE_SAVE_CONF  = 2;
 const char STATE_RUN        = 3;
 
 const char* STATES[] = {"LOAD_CONF", "SETUP", "SAVE_CONF", "RUN"};
-
-/* Control flags */
-boolean AP_RUNNING = false;
-boolean CLIENT_RUNNING = false;
 
 char currentState = STATE_LOAD_CONF;
 
@@ -107,31 +88,5 @@ void setState (char state) {
     Serial.println(STATES[state]);
   } else {
     Serial.printf("Invalid state: %d\n", state);
-  }
-}
-
-void moduleRun () {
-  if (!mqttClient.connected()) {
-    connectBroker();
-  }
-  mqttClient.loop();
-}
-
-void connectBroker() {
-  // Loop until we're reconnected
-  while (!mqttClient.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Attempt to connect
-    if (mqttClient.connect(moduleName)) {
-      Serial.println("connected");
-      // once connected subscribe
-      mqttClient.subscribe(TOPIC_COMMAND);
-    } else {
-      Serial.print("failed, rc=");
-      Serial.print(mqttClient.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
-    }
   }
 }
