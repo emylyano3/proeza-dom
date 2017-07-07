@@ -3,30 +3,30 @@ Codigo para ESP Switch via MQTT
 
 Se implemnta sobre una maquina de estados
 Estados posibles
-  1. LOAD_CREDENTIALS
-  2. WIFI_CONFIG
-  3. SAVE_CREDENTIALS
-  4. CONNECT_WIFI
-  5. CONNECT_BROKER
-  6. RUN
+  1. LOAD_COMF
+  2. SETUP
+  3. SAVE_CONF
+  4. RUN
 
 Primer boot
 -----------
-  1. LOAD_CREDENTIALS: Se intentan obtener las cedenciales persistidas en la EEPROM
-    1.1 WIFI_CONFIG: Se entra en este estado si no se logran cargar las credenciales. El modulo
-    entra en modo server publicando en la IP asingada un formulario para el ingreso de las credenciales
-    necesarias para el funcionamiento del modulo
-    1.2 SAVE_CREDENTIALS: Una vez ingresadas las credenciales se persisten en la EEPROM
-    1.3 LOAD_CREDENTIALS: Se cargan las credenciales
-  2. CONNECT_WIFI: Se conecta al wifi configurado. Se reintenta la conexion una cantidad N de veces
-  (a definir) Si no se puede realizar la conexion luego de los reintentos se pasa nuevamente al estado
-  LOAD_CREDENTIALS
-  3. CONNECT_BROKER: Luego de conectar al wifi se realiza la conexion con el broker. Se reintenta una
-  cantidad M de veces. Si no se puede realizar la conexion luego de los reintentos se pasa nuevamente al estado
-  LOAD_CREDENTIALS
-  4. RUN: FInalmente se entra en el estado de ejecucion normal (logica del switch)
-  5. CONFIG_SWITCH: Estado en el que se pueden configurar ciertos aspectos del switch.
-  E.g.: IP (estatica) del switch, Nombre del switch
+  1. LOAD_CONF: Se intentan obtener las cedenciales persistidas
+    1.1 SETUP: Se entra en este estado si no se logra cargar la configuracion del
+    moduloe. El modulo en modo AP y levanta un web server publicando en la IP asingada
+    un formulario para el ingreso de la configuracion.
+    1.2 SAVE_CONF: Una vez ingresadas las credenciales se persisten
+  2. RUN: Finalizada la etapa de configuracion se inicializa el modulo en modo cliente.
+  Con la configuracion establecida se conecta al AP de la red y se conecta al broker MQTT.
+    2.1 SETUP: Se entra en este estado si Luego de 10 reintentos no se puede establecer
+    algunas de las conexiones.
+
+Las transiciones de estado posibles:
+  LOAD_CONF --> RUN
+  LOAD_CONF --> SETUP
+  SETUP ------> SAVE_CONF
+  SAVE_CONF --> RUN
+  RUN --------> SETUP
+
 */
 
 #include <ESP8266WiFi.h>
@@ -95,7 +95,7 @@ void loop () {
       saveConfig();
     break;
     default:
-      Serial.printf("Invalid module mode %c. Fatal error.", currentState);
+      Serial.printf("Invalid module state %d. Fatal error.", currentState);
       while (true);
   }
 }
