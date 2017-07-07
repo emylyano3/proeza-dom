@@ -35,20 +35,24 @@ Primer boot
 #include <EEPROM.h>
 #include <PubSubClient.h>
 
-/* IP del AP */
+/* MQTT Client */
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+
+/* MQTT broker config */
+const char* mqtt_server = "192.168.0.105";
+
+/* Topics config */
+const char* TOPIC_COMMAND = "light/room01/cmd";
+
+/* Access Point */
+const char * APssid = "ESP-AP";
+const char * APpass = "12345678";
 IPAddress apIP(192, 168, 5, 1);
 IPAddress netMsk(255, 255, 255, 0);
 
 /* Web server para manejar la config */
 ESP8266WebServer webServer(80);
-
-/* MQTT Client */
-WiFiClient espClient;
-PubSubClient mqttClient(espClient);
-
-/* Access Point */
-const char * APssid = "ESP-AP";
-const char * APpass = "12345678";
 
 /* Wifi Network */
 char ssid[32] = "none";
@@ -57,63 +61,77 @@ char pass[32] = "none";
 /* Module Name */
 char moduleName[20] = "ESP_Switch";
 
-/* Module modes */
-const char MODE_AP = 0;
-const char MODE_CLIENT = 1;
+/* Module states */
+const char STATE_LOAD_CONF  = 0;
+const char STATE_SETUP      = 1;
+const char STATE_SAVE_CONF  = 2;
+const char STATE_RUN        = 3;
 
-char currentMode = MODE_AP;
+const char* STATES[] = {"LOAD_CONF", "SETUP", "SAVE_CONF", "RUN"};
+
+/* Control flags */
+boolean AP_RUNNING = false;
+boolean CLIENT_RUNNING = false;
+
+char currentState = STATE_LOAD_CONF;
 
 void setup () {
   Serial.begin(115200);
-  Serial.println("Setup");
-  // testCredentialsStore();
-  startAP();
-  configServer();
+  delay(5000);
 }
 
-long lastAPClientsCheck = 0;
-
 void loop () {
-  switch (currentMode) {
-    case MODE_AP:
-      if (lastAPClientsCheck < millis()) {
-        lastAPClientsCheck = millis() + 5000;
-        Serial.printf("Stations connected = %d\n", WiFi.softAPgetStationNum());
-      }
-      webServer.handleClient();
+  switch (currentState) {
+    case STATE_LOAD_CONF:
+      loadConfig();
     break;
-    case MODE_CLIENT:
-      if (!mqttClient.connected()) {
-        // connectBroker();
-      }
-      mqttClient.loop();
+    case STATE_SETUP:
+      moduleSetup();
+    break;
+    case STATE_RUN:
+      moduleRun();
+    break;
+    case STATE_SAVE_CONF:
+      saveConfig();
     break;
     default:
-      Serial.printf("Invalid module mode %c. Fatal error.", currentMode);
+      Serial.printf("Invalid module mode %c. Fatal error.", currentState);
       while (true);
   }
 }
 
-void startAP () {
-  Serial.println("Starting Access Point...");
-  WiFi.softAPConfig(apIP, apIP, netMsk);
-  if (WiFi.softAP(APssid, APpass)) {
-    // Without delay I've seen the IP address blank
-    delay(500);
-    Serial.print("AP Setup Success. IP address: ");
-    Serial.println(WiFi.softAPIP());
+void setState (char state) {
+  if (state <= STATE_RUN) {
+    currentState = state;
+    Serial.print("State changed to: ");
+    Serial.println(STATES[state]);
   } else {
-    Serial.println("AP Setup Fail.");
+    Serial.printf("Invalid state: %d\n", state);
   }
 }
 
-void configServer () {
-  webServer.on("/wifisetup", handleWifiSetup);
-  webServer.on("/wifisave", handleWifiSave);
-  webServer.on("/switchsetup", handleSwitchSetup);
-  webServer.on("/switchsave", handleSwitchSave);
-  webServer.onNotFound(handleNotFound);
-  // Web server start
-  webServer.begin();
-  Serial.println("HTTP server started");
+void moduleRun () {
+  if (!mqttClient.connected()) {
+    connectBroker();
+  }
+  mqttClient.loop();
+}
+
+void connectBroker() {
+  // Loop until we're reconnected
+  while (!mqttClient.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    // Attempt to connect
+    if (mqttClient.connect(moduleName)) {
+      Serial.println("connected");
+      // once connected subscribe
+      mqttClient.subscribe(TOPIC_COMMAND);
+    } else {
+      Serial.print("failed, rc=");
+      Serial.print(mqttClient.state());
+      Serial.println(" try again in 5 seconds");
+      // Wait 5 seconds before retrying
+      delay(5000);
+    }
+  }
 }
