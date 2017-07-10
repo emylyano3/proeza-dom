@@ -58,10 +58,13 @@ char currentState = STATE_LOAD_CONF;
 
 void setup () {
   Serial.begin(115200);
-  delay(5000);
+  ESP.wdtDisable();
+  ESP.wdtEnable(WDTO_8S);
+  delay(50);
 }
 
 void loop () {
+  ESP.wdtFeed();
   switch (currentState) {
     case STATE_LOAD_CONF:
       loadConfig();

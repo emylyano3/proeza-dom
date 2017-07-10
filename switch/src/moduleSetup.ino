@@ -75,7 +75,6 @@ bool startWebServer () {
 		webServer.on("/switchsetup", handleSwitchSetup);
 		webServer.on("/setupfinish", handleSetupFinish);
 		webServer.onNotFound(handleNotFound);
-		// Web server start
 		webServer.begin();
 		Serial.println("HTTP server started");
 		return true;

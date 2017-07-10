@@ -17,7 +17,6 @@ void loadConfig () {
   Serial.println(ssid);
   Serial.println(pass);
   Serial.println(moduleName);
-  // Serial.println(strlen(pass) > 0 ? "********" : "<no pass>");
   setState(setupDone() ? STATE_RUN : STATE_SETUP);
 }
 
