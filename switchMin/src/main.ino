@@ -1,6 +1,7 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 #include <PubSubClient.h>
+#include <FS.h>
 
 ESP8266WebServer server(80);
 
@@ -26,12 +27,11 @@ uint8_t state = 0;
 
 void setup() {
   Serial.begin(115200);
-  long aux = millis() + 12000;
-  while (aux > millis()) {
-    delay(500);
-    Serial.print(".");
-  }
   Serial.println("Setup started");
+  startAP();
+}
+
+void startAP () {
   WiFi.mode(WIFI_AP);
   IPAddress apIP(192, 168, 5, 1);
   IPAddress netMsk(255, 255, 255, 0);
@@ -74,7 +74,7 @@ void connectBroker() {
 
 int connectStation() {
   WiFi.mode(WIFI_STA);
-  WiFi.hostname("light_switch");
+  WiFi.hostname(name);
   Serial.println("Connecting station");
   WiFi.begin(ssid, pass);
   int status;
