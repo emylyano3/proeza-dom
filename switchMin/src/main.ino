@@ -28,7 +28,20 @@ uint8_t state = 0;
 void setup() {
   Serial.begin(115200);
   Serial.println("Setup started");
+  initFS();
   startAP();
+}
+
+void initFS () {
+  uint32_t realSize = ESP.getFlashChipRealSize();
+  uint32_t ideSize = ESP.getFlashChipSize();
+  if (realSize == ideSize) {
+    Serial.print("Flash correctly configured. SPIFFS opened: ");
+    Serial.println(SPIFFS.begin());
+  } else {
+    Serial.printf("Flash incorrectly configured, cannot start module. IDE size: %d, real size: %d", ideSize, realSize);
+    while (1);
+  }
 }
 
 void startAP () {
