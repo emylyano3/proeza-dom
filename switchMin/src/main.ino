@@ -2,9 +2,20 @@
 #include <ESP8266WebServer.h>
 #include <PubSubClient.h>
 
-IPAddress apIP(192, 168, 5, 1);
-IPAddress netMsk(255, 255, 255, 0);
 ESP8266WebServer server(80);
+
+/* Wifi Network config */
+char ssid[32] = "";
+char pass[32] = "";
+
+/* Module config */
+char name[20]     = "";
+char domain[20]   = "";
+char type[20]     = "";
+char location[20] = "";
+
+char mqttBrokerIP[16] = "";
+int mqttBrokerPort = 0;
 
 /* MQTT Client */
 WiFiClient espClient;
@@ -22,6 +33,8 @@ void setup() {
   }
   Serial.println("Setup started");
   WiFi.mode(WIFI_AP);
+  IPAddress apIP(192, 168, 5, 1);
+  IPAddress netMsk(255, 255, 255, 0);
   WiFi.softAPConfig(apIP, apIP, netMsk);
   WiFi.softAP("ESP-AP", "12345678");
   server.on("/setup", handleSetup);
@@ -42,33 +55,14 @@ void loop() {
     return;
   } else {
     Serial.printf("Estado invalido %d\n", state);
-    return;
+    while (1);
   }
-}
-
-void handleStart () {
-  server.send(200, "text/html", "<!DOCTYPE html><html>Starting module</html>");
-  server.stop();
-  connectStation();
-  setBroker();
-  state = 1;
-}
-
-void setBroker () {
-  mqttClient.setServer("192.168.0.105", 1883);
-  mqttClient.setCallback(callback);
-}
-
-void callback(char* topic, unsigned char* payload, unsigned int length) {
-  Serial.println("Message received.");
-  Serial.print("Topic: ");
-  Serial.println(topic);
 }
 
 void connectBroker() {
   if (lastMqttConnAtt < millis()) {
     lastMqttConnAtt = millis() + 5000;
-    if (mqttClient.connect("light_switch")) {
+    if (mqttClient.connect(name)) {
       Serial.println("connected");
       mqttClient.subscribe("light/room01/cmd");
     } else {
@@ -81,8 +75,8 @@ void connectBroker() {
 int connectStation() {
   WiFi.mode(WIFI_STA);
   WiFi.hostname("light_switch");
-  Serial.println("Connecting station to ssid: dd-wrt-low pass: sabarasa");
-  WiFi.begin("dd-wrt-low", "sabarasa");
+  Serial.println("Connecting station");
+  WiFi.begin(ssid, pass);
   int status;
   while ((status = WiFi.status()) != WL_CONNECTED) {
     switch (status) {
@@ -101,20 +95,95 @@ int connectStation() {
   return status;
 }
 
+void callback(char* topic, unsigned char* payload, unsigned int length) {
+  Serial.print("Message received. ");
+  Serial.print("Topic: ");
+  Serial.println(topic);
+}
+
+void handleStart () {
+  server.send(200, "text/html", getStartingMessage());
+  server.stop();
+  processSetupForm();
+  connectStation();
+  setBroker();
+  state = 1;
+}
+
+void setBroker () {
+  mqttClient.setServer(mqttBrokerIP, mqttBrokerPort);
+  mqttClient.setCallback(callback);
+}
+
+void processSetupForm () {
+  server.arg("ssid").toCharArray(ssid, sizeof(ssid) - 1);
+  server.arg("pass").toCharArray(pass, sizeof(pass) - 1);
+  server.arg("mDom").toCharArray(domain, sizeof(domain) - 1);
+	server.arg("mNam").toCharArray(name, sizeof(name) - 1);
+	server.arg("mLoc").toCharArray(location, sizeof(location) - 1);
+	server.arg("mTyp").toCharArray(type, sizeof(type) - 1);
+	server.arg("mqbrIP").toCharArray(mqttBrokerIP, sizeof(mqttBrokerIP) - 1);
+	char aux[6];
+	server.arg("mqbrPO").toCharArray(aux, sizeof(aux) - 1);
+  mqttBrokerPort = String(aux).toInt();
+}
+
 void handleSetup() {
   server.send(200, "text/html", getSetupForm());
 }
 
-String getSetupForm () {
-  char form[] = (
+String getStartingMessage () {
+  char sm[] =
     "<!DOCTYPE html>"
     "<html>"
-      "Setup Finish<p/>"
-      "<form method='POST' action='start'>"
-      "<input type='submit' value='Iniciar Modulo'/>"
-      "</form>"
-    "</html>"
-  );
+      "<h1>Starting module</h1>"
+    "</html>";
+    return String(sm);
+}
+
+String getSetupForm () {
+  char form[] =
+  "<!DOCTYPE html>"
+  "<html>"
+    "<body>"
+      "<h1>ESP Module Setup</h1>"
+      "<div>"
+        "<form method='POST' action='start'>"
+          "SSID<br/>"
+  			  "<input type='text' name='ssid' required='required' placeholder='ssid'/>"
+  			  "<br/><p/>"
+  			  "Password<br/>"
+  			  "<input type='password' name='pass' placeholder='********'/>"
+  			  "<br/><p/>"
+          "<b>Dominio</b><br/>"
+          "<input type='text' name='mDom' placeholder='MiCasa' value='MiCasa' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
+          "<p/><br/>"
+          "<b>Nombre</b><br/>"
+          "<input type='text' name='mNam' placeholder='switch01' value='switch01' required='required' pattern='[\\w\\-_]{3,10}' maxlength=10/>"
+          "<p/><br/>"
+          "<b>Tipo de modulo</b><br/>"
+          "<input list='stypes' name='mTyp' value='Light' required='required'/>"
+          "<datalist id='stypes'>"
+            "<option value='Appliance'/>"
+            "<option value='Light'/>"
+            "<option value='Power'/>"
+            "<option value='Machine'/>"
+          "</datalist>"
+          "<p/><br/>"
+          "<b>Ubicacion</b><br/>"
+          "<input type='text' name='mLoc' placeholder='dorm_01' value='dorm_01' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
+          "<p/><br/>"
+          "<b>IP MQTT Broker</b><br/>"
+          "<input type='text' name='mqbrIP' value='192.168.0.105' required='required' pattern='[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}' maxlength=15/>"
+          "<p/><br/>"
+          "<b>Puerto MQTT Broker</b><br/>"
+          "<input type='text' name='mqbrPO' value='1883' required='required' pattern='[\\d]{1,5}' maxlength=5/>"
+          "<p/><br/>"
+          "<input type='submit' value='Iniciar modulo'/>"
+        "</form>"
+      "</div>"
+    "</body>"
+    "</html>";
   return String(form);
 }
 
