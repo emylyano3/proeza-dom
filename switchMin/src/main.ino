@@ -1,11 +1,15 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
-// #include <WiFiClient.h>
-// #include <PubSubClient.h>
+#include <PubSubClient.h>
 
 IPAddress apIP(192, 168, 5, 1);
 IPAddress netMsk(255, 255, 255, 0);
 ESP8266WebServer server(80);
+
+/* MQTT Client */
+WiFiClient espClient;
+PubSubClient mqttClient(espClient);
+long lastMqttConnAtt = 0;
 
 uint8_t state = 0;
 
@@ -16,7 +20,7 @@ void setup() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println();
+  Serial.println("Setup started");
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(apIP, apIP, netMsk);
   WiFi.softAP("ESP-AP", "12345678");
@@ -31,6 +35,10 @@ void loop() {
     server.handleClient();
     return;
   } else if (state == 1) {
+    if (!mqttClient.connected()) {
+      connectBroker();
+    }
+    mqttClient.loop();
     return;
   } else {
     Serial.printf("Estado invalido %d\n", state);
@@ -42,7 +50,32 @@ void handleStart () {
   server.send(200, "text/html", "<!DOCTYPE html><html>Starting module</html>");
   server.stop();
   connectStation();
+  setBroker();
   state = 1;
+}
+
+void setBroker () {
+  mqttClient.setServer("192.168.0.105", 1883);
+  mqttClient.setCallback(callback);
+}
+
+void callback(char* topic, unsigned char* payload, unsigned int length) {
+  Serial.println("Message received.");
+  Serial.print("Topic: ");
+  Serial.println(topic);
+}
+
+void connectBroker() {
+  if (lastMqttConnAtt < millis()) {
+    lastMqttConnAtt = millis() + 5000;
+    if (mqttClient.connect("light_switch")) {
+      Serial.println("connected");
+      mqttClient.subscribe("light/room01/cmd");
+    } else {
+      Serial.print("failed, rc=");
+      Serial.println(mqttClient.state());
+    }
+  }
 }
 
 int connectStation() {
@@ -69,7 +102,20 @@ int connectStation() {
 }
 
 void handleSetup() {
-  server.send(200, "text/html", "<!DOCTYPE html><html>Setup Finish<p/><form method='POST' action='start'><input type='submit' value='Iniciar Modulo'/></form></html>");
+  server.send(200, "text/html", getSetupForm());
+}
+
+String getSetupForm () {
+  char form[] = (
+    "<!DOCTYPE html>"
+    "<html>"
+      "Setup Finish<p/>"
+      "<form method='POST' action='start'>"
+      "<input type='submit' value='Iniciar Modulo'/>"
+      "</form>"
+    "</html>"
+  );
+  return String(form);
 }
 
 void handleNotFound() {
