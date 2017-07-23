@@ -6,14 +6,14 @@
 ESP8266WebServer server(80);
 
 /* Wifi Network config */
-char ssid[32] = "";
+// char ssid[32] = "";
 char pass[32] = "";
 
 /* Module config */
 char name[20]     = "";
 char domain[20]   = "";
-char type[20]     = "";
 char location[20] = "";
+char type[20]     = "";
 
 char mqttBrokerIP[16] = "";
 int mqttBrokerPort = 0;
@@ -29,10 +29,15 @@ void setup() {
   Serial.begin(115200);
   Serial.println("Setup started");
   initFS();
-  startAP();
+  if (existConfig()) {
+
+  } else {
+    startAP();
+  }
 }
 
 void initFS () {
+  ESP.wdtFeed();
   uint32_t realSize = ESP.getFlashChipRealSize();
   uint32_t ideSize = ESP.getFlashChipSize();
   if (realSize == ideSize) {
@@ -45,15 +50,18 @@ void initFS () {
 }
 
 void startAP () {
+  ESP.wdtFeed();
   WiFi.mode(WIFI_AP);
   IPAddress apIP(192, 168, 5, 1);
   IPAddress netMsk(255, 255, 255, 0);
   WiFi.softAPConfig(apIP, apIP, netMsk);
   WiFi.softAP("ESP-AP", "12345678");
+  Serial.println("AP started");
   server.on("/setup", handleSetup);
   server.on("/start", handleStart);
   server.onNotFound(handleNotFound);
   server.begin();
+  Serial.println("Server started");
 }
 
 void loop() {
@@ -89,7 +97,7 @@ int connectStation() {
   WiFi.mode(WIFI_STA);
   WiFi.hostname(name);
   Serial.println("Connecting station");
-  WiFi.begin(ssid, pass);
+  WiFi.begin(getConfig("/ssid.txt"), pass);
   int status;
   while ((status = WiFi.status()) != WL_CONNECTED) {
     switch (status) {
@@ -117,7 +125,7 @@ void callback(char* topic, unsigned char* payload, unsigned int length) {
 void handleStart () {
   server.send(200, "text/html", getStartingMessage());
   server.stop();
-  processSetupForm();
+  saveSetupForm();
   connectStation();
   setBroker();
   state = 1;
@@ -128,21 +136,61 @@ void setBroker () {
   mqttClient.setCallback(callback);
 }
 
-void processSetupForm () {
+void saveSetupForm () {
+  char ssid[32] = "";
   server.arg("ssid").toCharArray(ssid, sizeof(ssid) - 1);
+  saveConfig("/ssid.txt", ssid);
   server.arg("pass").toCharArray(pass, sizeof(pass) - 1);
-  server.arg("mDom").toCharArray(domain, sizeof(domain) - 1);
-	server.arg("mNam").toCharArray(name, sizeof(name) - 1);
-	server.arg("mLoc").toCharArray(location, sizeof(location) - 1);
-	server.arg("mTyp").toCharArray(type, sizeof(type) - 1);
-	server.arg("mqbrIP").toCharArray(mqttBrokerIP, sizeof(mqttBrokerIP) - 1);
+  server.arg("doma").toCharArray(domain, sizeof(domain) - 1);
+	server.arg("name").toCharArray(name, sizeof(name) - 1);
+	server.arg("loca").toCharArray(location, sizeof(location) - 1);
+	server.arg("type").toCharArray(type, sizeof(type) - 1);
+	server.arg("brIP").toCharArray(mqttBrokerIP, sizeof(mqttBrokerIP) - 1);
 	char aux[6];
-	server.arg("mqbrPO").toCharArray(aux, sizeof(aux) - 1);
+	server.arg("brPO").toCharArray(aux, sizeof(aux) - 1);
   mqttBrokerPort = String(aux).toInt();
+}
+
+void saveConfig (const char* filePath, char data[]) {
+  File f = SPIFFS.open(filePath, "w");
+  if (!f) {
+    Serial.printf("Could not open file %s for writing\n", *filePath);
+  } else {
+    f.println(data);
+  }
+  f.close();
+}
+
+char* getConfig(const char* filePath) {
+  File f = SPIFFS.open(filePath, "r");
+  if (!f) {
+    Serial.printf("Could not open file %s for reading\n", *filePath);
+  } else {
+    char* bytes;
+    f.readBytes(bytes, f.available());
+    Serial.printf("Data loaded from %s: %s\n", *filePath, *bytes);
+  }
+  f.close();
 }
 
 void handleSetup() {
   server.send(200, "text/html", getSetupForm());
+}
+
+bool existConfig() {
+  return
+    existsFile("/ssid.txt")
+    && existsFile("/pass.txt")
+    && existsFile("/name.txt")
+    && existsFile("/domain.txt")
+    && existsFile("/location.txt")
+    && existsFile("/type.txt")
+    && existsFile("/mqttBrokerIP.txt")
+    && existsFile("/mqttBrokerPort.txt");
+}
+
+bool existsFile (String file) {
+  return SPIFFS.exists(file);
 }
 
 String getStartingMessage () {
@@ -169,13 +217,13 @@ String getSetupForm () {
   			  "<input type='password' name='pass' placeholder='********'/>"
   			  "<br/><p/>"
           "<b>Dominio</b><br/>"
-          "<input type='text' name='mDom' placeholder='MiCasa' value='MiCasa' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
+          "<input type='text' name='doma' placeholder='MiCasa' value='MiCasa' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
           "<p/><br/>"
           "<b>Nombre</b><br/>"
-          "<input type='text' name='mNam' placeholder='switch01' value='switch01' required='required' pattern='[\\w\\-_]{3,10}' maxlength=10/>"
+          "<input type='text' name='name' placeholder='switch01' value='switch01' required='required' pattern='[\\w\\-_]{3,10}' maxlength=10/>"
           "<p/><br/>"
           "<b>Tipo de modulo</b><br/>"
-          "<input list='stypes' name='mTyp' value='Light' required='required'/>"
+          "<input list='stypes' name='type' value='Light' required='required'/>"
           "<datalist id='stypes'>"
             "<option value='Appliance'/>"
             "<option value='Light'/>"
@@ -184,13 +232,13 @@ String getSetupForm () {
           "</datalist>"
           "<p/><br/>"
           "<b>Ubicacion</b><br/>"
-          "<input type='text' name='mLoc' placeholder='dorm_01' value='dorm_01' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
+          "<input type='text' name='loca' placeholder='dorm_01' value='dorm_01' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
           "<p/><br/>"
           "<b>IP MQTT Broker</b><br/>"
-          "<input type='text' name='mqbrIP' value='192.168.0.105' required='required' pattern='[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}' maxlength=15/>"
+          "<input type='text' name='brIP' value='192.168.0.105' required='required' pattern='[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}' maxlength=15/>"
           "<p/><br/>"
           "<b>Puerto MQTT Broker</b><br/>"
-          "<input type='text' name='mqbrPO' value='1883' required='required' pattern='[\\d]{1,5}' maxlength=5/>"
+          "<input type='text' name='brPO' value='1883' required='required' pattern='[\\d]{1,5}' maxlength=5/>"
           "<p/><br/>"
           "<input type='submit' value='Iniciar modulo'/>"
         "</form>"
@@ -201,19 +249,19 @@ String getSetupForm () {
 }
 
 void handleNotFound() {
-  String message = "<h1>File Not Found</h1><br/>";
-  message += "URI: ";
-  message += server.uri();
-  message += "<br/>Method: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "<br/>Arguments: ";
-  message += server.args();
-  message += "<p/>";
-  for ( uint8_t i = 0; i < server.args(); i++ ) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-  server.sendHeader("Pragma", "no-cache");
-  server.sendHeader("Expires", "-1");
-  server.send(404, "text/html", message);
+  // String message = "<h1>File Not Found</h1><br/>";
+  // message += "URI: ";
+  // message += server.uri();
+  // message += "<br/>Method: ";
+  // message += (server.method() == HTTP_GET) ? "GET" : "POST";
+  // message += "<br/>Arguments: ";
+  // message += server.args();
+  // message += "<p/>";
+  // for ( uint8_t i = 0; i < server.args(); i++ ) {
+  //   message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
+  // }
+  // server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  // server.sendHeader("Pragma", "no-cache");
+  // server.sendHeader("Expires", "-1");
+  server.send(404, "text/html", "<h1>Not found</h1>");
 }
