@@ -16,8 +16,9 @@ void connectBroker() {
 int connectStation() {
   Serial.println("Connecting station");
   WiFi.mode(WIFI_STA);
-  // WiFi.hostname(readConf("name"));
-  WiFi.hostname("switch01");
+  char value[24] = "";
+  readConf("name", value);
+  WiFi.hostname(value);
   WiFi.begin("dd-wrt-low", "sabarasa");
   // WiFi.begin(getConfig("/ssid.txt"), pass);
   int status;
@@ -71,7 +72,7 @@ void saveSetupForm () {
   conf.concat(server.arg("brPO"));
   conf.concat("|");
   char tosave[conf.length()];
-  conf.toCharArray(tosave, sizeof(tosave));
+  conf.toCharArray(tosave, sizeof(tosave) + 1, 0);
   saveConf(tosave);
 }
 
@@ -138,9 +139,11 @@ void handleStart () {
   server.send(200, "text/html", getStartingMessage());
   server.stop();
   saveSetupForm();
+  launchModule();
 }
 
 void launchModule () {
+  loadConf();
   connectStation();
   setBroker();
   state = 1;
