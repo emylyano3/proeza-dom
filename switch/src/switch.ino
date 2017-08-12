@@ -13,25 +13,27 @@ const int STATE_OFF     = 0;
 const int STATE_ON      = 1;
 const int STATE_INVALID = 9;
 
+int currSwitchState = STATE_OFF;
+
 long nextBrokerConnAtte = 0;
 long nextStatsPrint = 0;
 
 bool stationConnected = false;
-bool mqttServerConfigured = false;
-
-int curSwitchState = 0;
+bool mqttBrokerConfigured = false;
 
 void moduleRun () {
   if (!stationConnected) {
     if (wrongConfiguration(connectStation())) {
+      WiFi.mode(WIFI_OFF);
+      delay(100);
       setState(STATE_SETUP);
       return;
     } else {
       stationConnected = true;
     }
   }
-  if (!mqttServerConfigured) {
-    mqttServerConfigured = configureMqttServer();
+  if (!mqttBrokerConfigured) {
+    mqttBrokerConfigured = configureMqttBroker();
   }
   if (!mqttClient.connected()) {
     connectBroker();
@@ -41,29 +43,35 @@ void moduleRun () {
 }
 
 bool wrongConfiguration (int status) {
-    return status == WL_CONNECT_FAILED || status == WL_NO_SSID_AVAIL;
+    return status == WL_CONNECT_FAILED; // || status == WL_NO_SSID_AVAIL;
 }
 
-bool configureMqttServer () {
-  mqttClient.setServer(mqttServerIP, mqttServerPort);
+bool configureMqttBroker () {
+  Serial.printf("Configuring MQTT broker. Server: %s. Port: %s\n", mqttBrokerIP, mqttBrokerPort);
+  mqttClient.setServer(mqttBrokerIP, mqttBrokerPort);
   mqttClient.setCallback(callback);
   return true;
 }
 
-int connectStation () {
+int connectStation() {
+  Serial.println("Connecting station");
   WiFi.mode(WIFI_STA);
-  Serial.printf("Connecting station to ssid [%s] pass: [%s]", ssid, pass);
+  WiFi.hostname(moduleName);
   WiFi.begin(ssid, pass);
+  // WiFi.hostname(value);
+  // WiFi.begin("dd-wrt-low", "sabarasa");
   int status;
   while ((status = WiFi.status()) != WL_CONNECTED) {
     switch (status) {
       case WL_CONNECT_FAILED:
+        Serial.println("Could not connect to dd-wrt-low");
+        return status;
       case WL_NO_SSID_AVAIL:
-        Serial.println("Abort! Wrong configuration.");
-      return status;
+        Serial.println("SSID dd-wrt-low is not available");
+        return status;
       case WL_IDLE_STATUS:
       default:
-      break;
+        break;
     }
     delay(500);
     Serial.print(".");
@@ -78,11 +86,24 @@ void callback(char* topic, unsigned char* payload, unsigned int length) {
     Serial.printf("Invalid state [%s]\n", state);
     return;
   }
-  if (state == curSwitchState) {
+  if (state == currSwitchState) {
     Serial.println("No state change detected. Ignoring.");
   } else {
     changeSwitchState(state);
   }
+  publishSwitchState();
+}
+
+void publishSwitchState () {
+    switch (currSwitchState) {
+      case STATE_OFF:
+        mqttClient.publish(TOPIC_STATE, "0");
+        return;
+      case STATE_ON:
+        mqttClient.publish(TOPIC_STATE, "1");
+        return;
+      default: return;
+    }
 }
 
 int translateMessage (char* topic, unsigned char* payload, unsigned int length) {
@@ -110,18 +131,16 @@ void changeSwitchState (unsigned int state) {
       // Turn the LED OFF (Note that HIGH is the voltage level but actually the LED is OFF
       // This is because it is acive low on the ESP-01)
       digitalWrite(BUILTIN_LED, HIGH);
-      mqttClient.publish(TOPIC_STATE, "0");
-      curSwitchState = state;
+      currSwitchState = state;
       break;
     case STATE_ON:
       digitalWrite(BUILTIN_LED, LOW);
-      mqttClient.publish(TOPIC_STATE, "1");
-      curSwitchState = state;
+      currSwitchState = state;
       break;
     default:
       break;
   }
-  Serial.printf("State changed to: %d\n", curSwitchState);
+  Serial.printf("State changed to: %d\n", currSwitchState);
 }
 
 void printStats () {
@@ -138,7 +157,8 @@ void printStats () {
 void connectBroker() {
   if (nextBrokerConnAtte <= millis()) {
     nextBrokerConnAtte = millis() + LOOP_THRESHOLD;
-    Serial.print("Attempting MQTT connection...");
+    Serial.printf("Connecting MQTT broker as %s...", moduleName);
+    yield();
     if (mqttClient.connect(moduleName)) {
       Serial.println("connected");
       mqttClient.subscribe(TOPIC_COMMAND);

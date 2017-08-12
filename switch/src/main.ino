@@ -31,20 +31,22 @@ Las transiciones de estado posibles:
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-#include <EEPROM.h>
 #include <PubSubClient.h>
-#include <FS.h>
+#include <EEPROM.h>
+
+/* Wifi Network config */
+char* ssid = (char*) malloc(32);
+char* pass = (char*) malloc(32);
 
 /* MQTT broker config */
-const char* mqttServerIP = "192.168.0.105";
-int mqttServerPort = 1883;
+char* mqttBrokerIP = (char*) malloc(15);
+int mqttBrokerPort = 1883;
 
-/* Wifi Network */
-char ssid[32] = "none";
-char pass[32] = "none";
-
-/* Module Name */
-char moduleName[20] = "none";
+/* Module config */
+char* moduleName      = (char*) malloc(15);
+char* moduleDomain    = (char*) malloc(15);
+char* moduleType      = (char*) malloc(15);
+char* moduleLocation  = (char*) malloc(15);
 
 /* Module states */
 const char STATE_LOAD_CONF  = 0;
@@ -58,25 +60,28 @@ char currentState = STATE_LOAD_CONF;
 
 void setup () {
   Serial.begin(115200);
+  while(!Serial) {
+    delay(10);
+  }
+  Serial.println("\nSetup started");
   ESP.wdtDisable();
   ESP.wdtEnable(WDTO_8S);
-  delay(50);
 }
 
 void loop () {
   ESP.wdtFeed();
   switch (currentState) {
     case STATE_LOAD_CONF:
-      loadConfig();
+      moduleConfig();
     break;
     case STATE_SETUP:
       moduleSetup();
     break;
+    case STATE_SAVE_CONF:
+      persistConfig();
+    break;
     case STATE_RUN:
       moduleRun();
-    break;
-    case STATE_SAVE_CONF:
-      saveConfig();
     break;
     default:
       Serial.printf("Invalid module state %d. Fatal error.", currentState);
@@ -87,8 +92,7 @@ void loop () {
 void setState (char state) {
   if (state <= STATE_RUN) {
     currentState = state;
-    Serial.print("State changed to: ");
-    Serial.println(STATES[state]);
+    Serial.printf("State changed to: %s\n", STATES[state]);
   } else {
     Serial.printf("Invalid state: %d\n", state);
   }

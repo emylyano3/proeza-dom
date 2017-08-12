@@ -1,29 +1,113 @@
-/** Load config from EEPROM */
-void loadConfig () {
-  Serial.println("Loading configuration");
-  EEPROM.begin(512);
-  EEPROM.get(0, ssid);
-  EEPROM.get(0 + sizeof(ssid), pass);
-  EEPROM.get(0 + sizeof(ssid) + sizeof(pass), moduleName);
-  char result[2 + 1];
-  EEPROM.get( 0 + sizeof(ssid) + sizeof(pass) + sizeof(moduleName), result);
-  EEPROM.end();
-  if (String(result) != String("OK")) {
-    ssid[0] = 0;
-    pass[0] = 0;
-    moduleName[0] = 0;
+const char* CONF_LOCATION = "conf.txt";
+
+const uint16_t CONFIG_SIZE = 256;
+
+void moduleConfig() {
+	Serial.println("Module configuration.");
+  if (existConfig()) {
+    loadConfig();
+  } else {
+    Serial.println("It does not exist persisted configuration. Going into setup mode.");
+    setState(STATE_SETUP);
   }
-  Serial.println("Recovered Data:");
-  Serial.println(ssid);
-  Serial.println(pass);
-  Serial.println(moduleName);
-  setState(setupDone() ? STATE_RUN : STATE_SETUP);
 }
 
-boolean setupDone () {
-  if (strlen(ssid) > 0 && String(ssid) != String("none")) {
+void loadConfig () {
+  Serial.println("Loading config from EEPROM");
+  char* config = (char*) malloc(CONFIG_SIZE);
+  EEPROM.begin(CONFIG_SIZE);
+	for (size_t i = 0; i < CONFIG_SIZE; ++i) {
+		config[i] = EEPROM.read(i);
+	}
+  EEPROM.end();
+  readConf(config, "ssid", ssid);
+  readConf(config, "pass", pass);
+  readConf(config, "name", moduleName);
+	readConf(config, "doma", moduleDomain);
+	Serial.printf("ssid: %s pass: %s name: %s domain: %s\n", ssid, pass, moduleName, moduleDomain);
+  free(config);
+  setState(configOK() ? STATE_RUN : STATE_SETUP);
+}
+
+/** Del config string lee la key y la asigna al buffer */
+void readConf (const char* config, const char* key, char* buff) {
+	Serial.printf("Reading key '%s' from config.\n", key);
+	if (!config || !key || !strlen(key)) {
+		Serial.println("No config found or invalid key.");
+		return; 
+	}
+	if ('|' != config[0] || '|' != config[strlen(config)-1]) {
+		Serial.println(config);
+		Serial.println("Invalid config found. Cleaning config.");
+		cleanConfig();
+		return;
+	}
+	int j = 0;
+	int i = 1;
+	for (; i < CONFIG_SIZE; i++) {
+		j = config[i] == key[j] ? ++j : 0;
+		if (j == strlen(key)) {
+      if (i + 1 < CONFIG_SIZE && ':' == config[i + 1]) {
+        // Salto del ultimo char correspondiente al key buscado al primero del value
+  			i += 2;
+  			break;
+      } else {
+        j = 0;
+      }
+		}
+	}
+	if (i < CONFIG_SIZE) {
+		Serial.printf("Key '%s' found in config.\n", key);
+		j = i;
+		while (j < CONFIG_SIZE && '|' != config[j]) {
+			++j;
+		}
+		uint16_t valueSize = j-i;
+		// Reset de j
+		j = 0; 
+		while (i < CONFIG_SIZE && j < valueSize && '|' != config[i]) {
+			buff[j++] = config[i++];
+		}
+		buff[valueSize] = '\0';
+		Serial.printf("Value for key '%s': %s.\n", key, buff);
+	}
+}
+
+void persistConfig () {
+	// Serial.printf("Saving configuration to EEPROM: %s.\n", cf);
+	// cleanConfig();
+	// EEPROM.begin(CONFIG_SIZE);
+	// uint16_t confSize = strlen(cf);
+	// Serial.printf("Config size: %d.\n", confSize);
+  // for (size_t i = 0; i < confSize; i++) {
+  //   EEPROM.write(i, cf[i]);
+	// }
+  // EEPROM.commit();
+	// EEPROM.end();
+	setState(STATE_RUN);
+}
+
+bool existConfig() {
+  EEPROM.begin(1);
+  bool e = ((char) EEPROM.read(0)) == '|'; // caracter de inicio de config
+  EEPROM.end();
+  return e;
+}
+
+void cleanConfig() {
+  EEPROM.begin(CONFIG_SIZE);
+  for (size_t i = 0; i < CONFIG_SIZE; i++) {
+		EEPROM.write(i, 0);
+  }
+  EEPROM.commit();
+  EEPROM.end();
+}
+
+bool configOK () {
+  //TODO Verificar todos los puntos de configuracion obligatorios
+  if (ssid && strlen(ssid) > 0) {
     Serial.println("SSID is set");
-    if (strlen(moduleName) > 0 && String(moduleName) != String("ESP_Switch")) {
+    if (moduleName && strlen(moduleName) > 0) {
       Serial.println("Module name set");
       return true;
     }
@@ -31,24 +115,4 @@ boolean setupDone () {
   }
   Serial.println("SSID not set");
   return false;
-}
-
-/** Store credentials to EEPROM */
-void saveConfig() {
-  Serial.println("Saving config");
-  // EEPROM.begin(512);
-  // EEPROM.put(0, ssid);
-  // EEPROM.put(0 + sizeof(ssid), pass);
-  // EEPROM.put(0 + sizeof(ssid) + sizeof(pass), moduleName);
-  Serial.print("SSID: ");
-  Serial.println(ssid);
-  Serial.print("Module Name: ");
-  Serial.println(moduleName);
-  Serial.print("Password: ");
-  Serial.println(pass);
-  // char result[2 + 1] = "OK";
-  // EEPROM.put(0 + sizeof(ssid) + sizeof(pass) + sizeof(moduleName), result);
-  // EEPROM.commit();
-  // EEPROM.end();
-  setState(STATE_RUN);
 }

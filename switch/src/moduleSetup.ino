@@ -1,54 +1,3 @@
-static const char FORM_WIFI_SETUP [] =
-"<!DOCTYPE html>"
-"<html>"
-"<body>"
-	"<h1>ESP Switch</h1>"
-  "<h2>Wifi setup</h2>"
-	"<div>"
-		"<form method='POST' action='switchsetup'>"
-		  "SSID<br/>"
-		  "<input type='text' name='ssid' required='required' placeholder='ssid'/>"
-		  "<br/><p/>"
-		  "Password<br/>"
-		  "<input type='password' name='pass' placeholder='********'/>"
-		  "<br/><p/>"
-		  "<input type='submit' value='Aceptar'/>"
-		"</form>"
-	"</div>"
-"</body>"
-"</html>";
-
-static const char FORM_SWITCH_SETUP [] =
-"<!DOCTYPE html>"
-"<html>"
-"<body>"
-	"<h1>ESP Switch</h1>"
-  "<h2>Module setup</h2>"
-	"<div>"
-		"<form method='POST' action='setupfinish'>"
-		  "Nombre<br/>"
-		  "<input type='text' name='swName' placeholder='luz-dorm-frente' required='required' pattern='[\\w-]{5,20}' maxlength=20/>"
-		  "<br/><p/>"
-		  "<input type='submit' value='Aceptar'/>"
-		"</form>"
-	"</div>"
-"</body>"
-"</html>";
-
-static const char PAGE_CONFIG_OK [] =
-"<!DOCTYPE html>"
-"<html>"
-	"<body>"
-		"<h1>Configuration OK</h1>"
-		"<h2>Server shuting down...</h2>"
-	"</body>"
-"</html>";
-
-/* Access Point */
-const char * APssid = "ESP-AP";
-const char * APpass = "12345678";
-IPAddress apIP(192, 168, 5, 1);
-IPAddress netMsk(255, 255, 255, 0);
 
 /* Web server para manejar la config */
 ESP8266WebServer webServer(80);
@@ -63,17 +12,18 @@ void moduleSetup () {
 }
 
 bool startWebServer () {
-  Serial.println("Starting Access Point...");
+  Serial.println("Starting Access Point for setup...");
 	WiFi.mode(WIFI_AP);
+	IPAddress apIP(192, 168, 5, 1);
+	IPAddress netMsk(255, 255, 255, 0);
   WiFi.softAPConfig(apIP, apIP, netMsk);
-  if (WiFi.softAP(APssid, APpass)) {
+  if (WiFi.softAP("ESP-AP", "12345678")) {
     // Without delay I've seen the IP address blank
     delay(500);
     Serial.print("AP Setup Success. IP address: ");
-    Serial.println(WiFi.softAPIP());
-		webServer.on("/wifisetup", handleWifiSetup);
-		webServer.on("/switchsetup", handleSwitchSetup);
-		webServer.on("/setupfinish", handleSetupFinish);
+		Serial.println(WiFi.softAPIP());
+		webServer.on("/setup", handleSetup);
+		webServer.on("/start", handleStart);
 		webServer.onNotFound(handleNotFound);
 		webServer.begin();
 		Serial.println("HTTP server started");
@@ -84,29 +34,14 @@ bool startWebServer () {
   }
 }
 
-void stopWebServer () {
-	webServer.stop();
-	WiFi.mode(WIFI_OFF);
-	APRunning = false;
+void handleSetup() {
+  webServer.send(200, "text/html", getSetupForm());
 }
 
-void handleWifiSetup() {
-  webServer.send(200, "text/html", FORM_WIFI_SETUP);
-}
-
-void handleSwitchSetup() {
-	webServer.arg("ssid").toCharArray(ssid, sizeof(ssid) - 1);
-	webServer.arg("pass").toCharArray(pass, sizeof(pass) - 1);
-  webServer.send(200, "text/html", FORM_SWITCH_SETUP);
-}
-
-void handleSetupFinish () {
-  webServer.arg("swName").toCharArray(moduleName, sizeof(moduleName) - 1);
-	webServer.send(200, "text/html", PAGE_CONFIG_OK);
-	webServer.client().stop();
-	delay(500);
+void handleStart () {
+	webServer.send(200, "text/html", getStartingMessage());
+	loadSetupForm();
 	stopWebServer();
-	delay(500);
 	setState(STATE_SAVE_CONF);
 }
 
@@ -120,10 +55,97 @@ void handleNotFound() {
   message += webServer.args();
   message += "<p/>";
   for ( uint8_t i = 0; i < webServer.args(); i++ ) {
-    message += " " + webServer.argName ( i ) + ": " + webServer.arg ( i ) + "\n";
+    message += " " + webServer.argName(i) + ": " + webServer.arg(i) + "\n";
   }
   webServer.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   webServer.sendHeader("Pragma", "no-cache");
   webServer.sendHeader("Expires", "-1");
   webServer.send(404, "text/html", message);
+}
+
+void stopWebServer () {
+	webServer.stop();
+	APRunning = false;
+}
+
+void loadSetupForm () {
+	String aux;
+	aux = webServer.arg("ssid");
+	aux.toCharArray(ssid, 32);
+	aux = webServer.arg("pass");
+	aux.toCharArray(pass, 32);
+  // String conf = String("|ssid:");
+  // conf.concat(webServer.arg("ssid"));
+  // conf.concat("|pass:");
+  // conf.concat(webServer.arg("pass"));
+  // conf.concat("|doma:");
+  // conf.concat(webServer.arg("doma"));
+  // conf.concat("|name:");
+  // conf.concat(webServer.arg("name"));
+  // conf.concat("|loca:");
+  // conf.concat(webServer.arg("loca"));
+  // conf.concat("|type:");
+  // conf.concat(webServer.arg("type"));
+  // conf.concat("|brIP:");
+  // conf.concat(webServer.arg("brIP"));
+  // conf.concat("|brPO:");
+  // conf.concat(webServer.arg("brPO"));
+  // conf.concat("|");
+  // char tosave[conf.length()];
+  // conf.toCharArray(tosave, sizeof(tosave) + 1, 0);
+  // saveConf(tosave);
+}
+
+const char* getSetupForm () {
+	// El formulario debe validar todos los campos como obligatorios
+	return
+	"<!DOCTYPE html>"
+  "<html>"
+    "<body>"
+      "<h1>ESP Module Setup</h1>"
+      "<div>"
+        "<form method='POST' action='start'>"
+          "SSID<br/>"
+  			  "<input type='text' name='ssid' required='required' placeholder='ssid'/>"
+  			  "<br/><p/>"
+  			  "Password<br/>"
+  			  "<input type='password' name='pass' placeholder='********'/>"
+  			  "<br/><p/>"
+          "<b>Dominio</b><br/>"
+          "<input type='text' name='doma' placeholder='MiCasa' value='MiCasa' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
+          "<p/><br/>"
+          "<b>Nombre</b><br/>"
+          "<input type='text' name='name' placeholder='switch01' value='switch01' required='required' pattern='[\\w\\-_]{3,10}' maxlength=10/>"
+          "<p/><br/>"
+          "<b>Tipo de modulo</b><br/>"
+          "<input list='stypes' name='type' value='Light' required='required'/>"
+          "<datalist id='stypes'>"
+            "<option value='Appliance'/>"
+            "<option value='Light'/>"
+            "<option value='Power'/>"
+            "<option value='Machine'/>"
+          "</datalist>"
+          "<p/><br/>"
+          "<b>Ubicacion</b><br/>"
+          "<input type='text' name='loca' placeholder='dorm_01' value='dorm_01' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
+          "<p/><br/>"
+          "<b>IP MQTT Broker</b><br/>"
+          "<input type='text' name='brIP' value='192.168.0.105' required='required' pattern='[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}\\.[\\d]{1,3}' maxlength=15/>"
+          "<p/><br/>"
+          "<b>Puerto MQTT Broker</b><br/>"
+          "<input type='text' name='brPO' value='1883' required='required' pattern='[\\d]{1,5}' maxlength=5/>"
+          "<p/><br/>"
+          "<input type='submit' value='Iniciar modulo'/>"
+        "</form>"
+      "</div>"
+    "</body>"
+    "</html>";
+}
+
+const char* getStartingMessage () {
+	return
+		"<!DOCTYPE html>"
+		"<html>"
+			"<h1>Starting module</h1>"
+		"</html>";
 }
