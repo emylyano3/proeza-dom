@@ -115,7 +115,7 @@ const char* getSetupForm () {
           "<input type='text' name='doma' placeholder='MiCasa' value='MiCasa' required='required' pattern='[\\w\\-_]{3,15}' maxlength=15/>"
           "<p/><br/>"
           "<b>Nombre</b><br/>"
-          "<input type='text' name='name' placeholder='switch01' value='switch01' required='required' pattern='[\\w\\-_]{3,10}' maxlength=10/>"
+          "<input type='text' name='name' placeholder='switch01' value='switch01' required='required' pattern='[\\w\\-_]{3,10}' maxlength=15/>"
           "<p/><br/>"
           "<b>Tipo de modulo</b><br/>"
           "<input list='stypes' name='type' value='Light' required='required'/>"
