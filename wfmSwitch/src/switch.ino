@@ -20,11 +20,7 @@ void callback(char* topic, unsigned char* payload, unsigned int length) {
     Serial.printf("Invalid state [%s]\n", state);
     return;
   }
-  if (state == currSwitchState) {
-    Serial.println("No state change detected. Ignoring.");
-  } else {
-    changeSwitchState(state);
-  }
+  updateSwitchState(state);
   publishSwitchState();
 }
 
@@ -42,32 +38,31 @@ void publishSwitchState () {
 
 uint8_t translateMessage (char* topic, unsigned char* payload, unsigned int length) {
   Serial.printf("Message arrived. Topic: [%s]. Length: [%d]\n", topic, length);
-  if (length != 1) {
-    Serial.println("Invalid payload length. Ignoring.");
+  if (length != 1 || !payload) {
+    Serial.printf("Invalid payload. Ignoring: %s\n", payload);
     return STATE_INVALID;
   }
-  Serial.printf("Payload: [%s]\n", payload[0]);
   if (!isDigit(payload[0])) {
-      Serial.println("Invalid payload. Ignoring.");
+      Serial.printf("Invalid payload format. Ignoring: %s\n", payload);
       return STATE_INVALID;
   }
   return payload[0] == '1' ? STATE_ON : payload[0] == '0' ? STATE_OFF : STATE_INVALID;
 }
 
-void changeSwitchState (unsigned int state) {
+void updateSwitchState (unsigned int state) {
   if (currSwitchState == state) {
+    Serial.println("No state change detected. Ignoring.");
     return;
   }
+  currSwitchState = state;
   switch (state) {
     case STATE_OFF:
       // Turn the LED OFF (Note that HIGH is the voltage level but actually the LED is OFF
       // This is because it is acive low on the ESP-01)
       digitalWrite(BUILTIN_LED, HIGH);
-      currSwitchState = state;
       break;
     case STATE_ON:
       digitalWrite(BUILTIN_LED, LOW);
-      currSwitchState = state;
       break;
     default:
       break;

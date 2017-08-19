@@ -24,43 +24,13 @@ PubSubClient mqttClient(espClient);
 
 void setup() {
   Serial.begin(115200);
-  delay(3000);
-  Serial.println("Setup started");
+  delay(1000);
+  Serial.println("\nSetup started");
   //clean FS, for testing
   // SPIFFS.format();
   //read configuration from FS json
   Serial.println("mounting FS...");
-  if (SPIFFS.begin()) {
-    Serial.println("mounted file system");
-    if (SPIFFS.exists("/config.json")) {
-      //file exists, reading and loading
-      Serial.println("reading config file");
-      File configFile = SPIFFS.open("/config.json", "r");
-      if (configFile) {
-        Serial.println("opened config file");
-        size_t size = configFile.size();
-        // Allocate a buffer to store contents of the file.
-        std::unique_ptr<char[]> buf(new char[size]);
-        configFile.readBytes(buf.get(), size);
-        DynamicJsonBuffer jsonBuffer;
-        JsonObject& json = jsonBuffer.parseObject(buf.get());
-        json.printTo(Serial);
-        if (json.success()) {
-          Serial.println("\nparsed json");
-          strcpy(mqttServer, json["mqtt_server"]);
-          strcpy(mqttPort, json["mqtt_port"]);
-          strcpy(domain, json["domain"]);
-          strcpy(name, json["name"]);
-          strcpy(location, json["location"]);
-          strcpy(type, json["type"]);
-        } else {
-          Serial.println("failed to load json config");
-        }
-      }
-    }
-  } else {
-    Serial.println("failed to mount FS");
-  }
+  loadConfig();
   //end read
 
   // The extra parameters to be configured (can be either global or just in the setup)
@@ -78,7 +48,7 @@ void setup() {
 
   //set config save notify callback
   wifiManager.setSaveConfigCallback(saveConfigCallback);
-
+  wifiManager.setStationName(name);
   //set static ip
   //wifiManager.setSTAStaticIPConfig(IPAddress(10,0,1,99), IPAddress(10,0,1,1), IPAddress(255,255,255,0));
   
@@ -112,7 +82,7 @@ void setup() {
   }
 
   //if you get here you have connected to the WiFi
-  Serial.println("Connected to wifi network)");
+  Serial.println("Connected to wifi network");
 
   //read updated parameters
   strcpy(mqttServer, mqttServerParam.getValue());
@@ -146,12 +116,48 @@ void setup() {
   Serial.println(WiFi.localIP());
   Serial.printf("Configuring MQTT broker. Server: %s. Port: %s\n", mqttServer, mqttPort);
   String port = String(mqttPort);
-  mqttClient.setServer(mqttServer, (uint_fast16_t) port.toInt());
+  mqttClient.setServer(mqttServer, (uint16_t) port.toInt());
   mqttClient.setCallback(callback);
 }
 
 void loop() {
   moduleRun();
+}
+
+void loadConfig() {
+  if (SPIFFS.begin()) {
+    Serial.println("mounted file system");
+    if (SPIFFS.exists("/config.json")) {
+      //file exists, reading and loading
+      Serial.println("reading config file");
+      File configFile = SPIFFS.open("/config.json", "r");
+      if (configFile) {
+        Serial.println("opened config file");
+        size_t size = configFile.size();
+        // Allocate a buffer to store contents of the file.
+        std::unique_ptr<char[]> buf(new char[size]);
+        configFile.readBytes(buf.get(), size);
+        DynamicJsonBuffer jsonBuffer;
+        JsonObject& json = jsonBuffer.parseObject(buf.get());
+        json.printTo(Serial);
+        if (json.success()) {
+          Serial.println("\nparsed json");
+          strcpy(mqttServer, json["mqtt_server"]);
+          strcpy(mqttPort, json["mqtt_port"]);
+          strcpy(domain, json["domain"]);
+          strcpy(name, json["name"]);
+          strcpy(location, json["location"]);
+          strcpy(type, json["type"]);
+        } else {
+          Serial.println("failed to load json config");
+        }
+      }
+    } else {
+      Serial.println("no config file found");
+    }
+  } else {
+    Serial.println("failed to mount FS");
+  }
 }
 
 /** callback notifying the need to save config */
