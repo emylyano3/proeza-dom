@@ -16,6 +16,8 @@ char name[21]         = "switch01";
 char location[21]     = "roomFront";
 char type[21]         = "Switch";
 
+const uint8_t GPIO_2  = 2;
+
 //flag for saving data
 bool shouldSaveConfig = false;
 
@@ -24,7 +26,7 @@ PubSubClient mqttClient(espClient);
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(500);
   Serial.println("\nSetup started");
   //clean FS, for testing
   // SPIFFS.format();
@@ -118,6 +120,7 @@ void setup() {
   String port = String(mqttPort);
   mqttClient.setServer(mqttServer, (uint16_t) port.toInt());
   mqttClient.setCallback(callback);
+  pinMode(GPIO_2, OUTPUT);
 }
 
 void loop() {

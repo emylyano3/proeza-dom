@@ -59,10 +59,10 @@ void updateSwitchState (unsigned int state) {
     case STATE_OFF:
       // Turn the LED OFF (Note that HIGH is the voltage level but actually the LED is OFF
       // This is because it is acive low on the ESP-01)
-      digitalWrite(BUILTIN_LED, HIGH);
+      digitalWrite(GPIO_2, HIGH);
       break;
     case STATE_ON:
-      digitalWrite(BUILTIN_LED, LOW);
+      digitalWrite(GPIO_2, LOW);
       break;
     default:
       break;
