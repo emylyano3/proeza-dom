@@ -1,2 +1,2 @@
 # proeza-dom
-R&amp;D para sistemas de automatización de construcciones residenciales con ESP, Arduino, OpenHAB y MQTT
+Personal R&amp;D on ESP8266 platform with Adruino FW
